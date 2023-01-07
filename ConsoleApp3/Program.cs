@@ -61,16 +61,77 @@ namespace ReadingCaptureFile
             //    string json = r.ReadToEnd();
             //     items = JsonConvert.DeserializeObject<List<Pcap>>(json); //Use a lot of memeory
             //}
-            StringBuilder querystr = new StringBuilder();
+            /*Read Pcap and Convert to Json*/
 
-            string outputFolder = "L3Mess/";
-            var jsonDir = Directory.EnumerateFiles(outputFolder).Where(x => x.Contains(".json")).ToList();
-            foreach (var jsonFile in jsonDir)
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+
+            StringBuilder querystr = new StringBuilder();
+            string outputFolder = "L3Mess";
+            string wiresharkDirectory = "C:\\Program Files\\Wireshark";
+            string ReadPcapDirectory = outputFolder + "\\ReadPcap\\";
+            if (!Directory.Exists(ReadPcapDirectory))
+                Directory.CreateDirectory(ReadPcapDirectory);
+            string corruptDirectory = outputFolder+"\\Corrupted\\";
+            if (!Directory.Exists(corruptDirectory))
+                Directory.CreateDirectory(corruptDirectory);
+            string JsonDirectory = outputFolder + "\\JsonFiles\\";
+            if (!Directory.Exists(JsonDirectory))
+                Directory.CreateDirectory(JsonDirectory);
+            var getAllPcap = Directory.EnumerateFiles(outputFolder, "*.pcapng", SearchOption.TopDirectoryOnly).ToList();
+            getAllPcap.ForEach(t =>
             {
-                var item = ExtractJsonFile(jsonFile); 
-                querystr.Append(item + Environment.NewLine); 
+                try
+                {
+                        var tname = Path.GetFileNameWithoutExtension(t);         
+                        string strCmdText = $"/c tshark -r  " + t + $" -T  json> {JsonDirectory}" + tname + ".json";
+                        Console.WriteLine(strCmdText);
+                        var process = new System.Diagnostics.Process();
+                        var startInfo = new System.Diagnostics.ProcessStartInfo
+                        {
+                            WorkingDirectory = wiresharkDirectory,
+                            WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal,
+                            FileName = "cmd.exe",
+                            RedirectStandardInput = true,
+                            UseShellExecute = false,
+                            Arguments = strCmdText
+                        };
+                        process.StartInfo = startInfo;
+                    Console.BackgroundColor = ConsoleColor.Red;
+                    Console.WriteLine(startInfo.ToString());
+                    Console.BackgroundColor = ConsoleColor.Black;
+                        process.Start();
+                        moveToDirectory(t, (int)FolderType.Normal, ReadPcapDirectory); //Move Pcap read normal
+                }
+                catch (Exception ex)
+                {  
+                    var fileName = Path.GetFileName(t);
+                    moveToDirectory(t,(int)FolderType.Corrupted,corruptDirectory); //Move Pcap has error
+                }
+            });
+            watch.Stop();
+            var elapsedMs = watch.ElapsedMilliseconds;
+            Console.WriteLine($">>>>> watch.ElapsedMilliseconds : `{watch.ElapsedMilliseconds}`.");
+
+            //if (JsonFiles.Count() > 0)
+            //{
+            //    var jsonDir = Directory.EnumerateFiles(JsonFiles, ".json").ToList();
+            //    foreach (var jsonFile in jsonDir)
+            //    {
+            //        var item = ExtractJsonFile(jsonFile);
+            //        querystr.Append(item + Environment.NewLine);
+            //    }
+            //    AdoCommand(querystr.ToString());
+            //}
+        }
+
+        private static void moveToDirectory(string t,int folderType,string pathDirectory)
+        {
+            var fileName = Path.GetFileName(t);
+            if (!Directory.GetFiles(pathDirectory).Any(u => u.Contains("t")))
+            {
+                File.Move(t, pathDirectory + '\\' + fileName, true);
             }
-            AdoCommand(querystr.ToString());
+         
         }
 
         private static string ExtractJsonFile(string filePath)
@@ -244,7 +305,6 @@ namespace ReadingCaptureFile
             }
             return res;
         }
-
     }
 }
 public static class DatetTimeExtention
@@ -262,12 +322,15 @@ public class Pcap
         public string _score { get; set; }
         public Source _source { get; set; }
     }
-
-    public class Source
+ enum FolderType
+{
+    Normal=1,
+    Corrupted=2,
+}
+ public class Source
     {
         public Layer layers { get; set; }
     }
-
 public class Layer
 {
     public JToken frame { get; set; }
@@ -279,7 +342,7 @@ public class Layer
     public JToken nas_eps {get;set;}
         public JToken gsm_a_dtap { get; set; }
     }
-    public static class JTokenExtention
+ public static class JTokenExtention
     {
         public static IEnumerable<T> SelectTokensWithRegex<T>(this JToken jsonReader, Regex regex)
         {
