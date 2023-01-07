@@ -71,14 +71,13 @@ namespace ReadingCaptureFile
                 querystr.Append(item + Environment.NewLine); 
             }
             AdoCommand(querystr.ToString());
-
-
         }
 
         private static string ExtractJsonFile(string filePath)
         {
-            Console.WriteLine($"***********Read {Path.GetFileName(filePath)}*************");
-            var fileWExt = Path.GetFileNameWithoutExtension(filePath);
+            var filename = Path.GetFileName(filePath);
+            Console.WriteLine($"***********Read {filename}*************");
+            var fileWExt = Path.GetFileNameWithoutExtension(filename);
             var TestId = fileWExt.Split("_")[1];
             string FullQuery = string.Empty;
             string json;
@@ -105,8 +104,8 @@ namespace ReadingCaptureFile
                         var Tokendt = FromUnixTime((long)time);
                         var TokenNo = Frame["frame.number"];                      
                         
-                        qrSt = "insert into TestresultEvent (Id,TestId,RegisterDate,TokenTime,TokenNo";
-                        vaSt += $"values ('{Guid.NewGuid()}',{TestId},'{DateTime.Now}','{Tokendt}','{TokenNo}'";
+                        qrSt = "insert into TestresultEvent (Id,TestId,RegisterDate,TokenTime,TokenNo,FileName";
+                        vaSt += $"values ('{Guid.NewGuid()}',{TestId},'{DateTime.Now}','{Tokendt}','{TokenNo}','{filename}'";
                         var lte_rrc = item.SelectToken("_source.layers.lte_rrc");
                         var cnteventA1 = lte_rrc.ToString().Contains("lte-rrc.eventA1_element");
                         if (cnteventA1)
